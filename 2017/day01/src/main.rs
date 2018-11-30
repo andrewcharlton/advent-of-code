@@ -20,12 +20,7 @@ fn sum_matching(digits: &Vec<u32>, offset: usize) -> u32 {
 }
 
 fn convert_input(input: String) -> Vec<u32> {
-    input
-        .chars()
-        .map(|c| c.to_digit(10))
-        .filter(|d| d.is_some())
-        .map(|d| d.unwrap())
-        .collect()
+    input.chars().filter_map(|c| c.to_digit(10)).collect()
 }
 
 #[cfg(test)]
