@@ -18,18 +18,15 @@ fn file_sum(changes: &Vec<i64>) -> i64 {
 }
 
 fn repeat_sum(changes: &Vec<i64>) -> i64 {
-    let mut results_seen = HashSet::new();
-
     let mut acc = 0;
-    loop {
-        for v in changes.iter() {
-            if results_seen.contains(&acc) {
-                return acc;
-            };
-            results_seen.insert(acc);
-            acc = acc + v;
-        }
-    }
+    let mut seen = HashSet::new();
+    seen.insert(0);
+
+    changes.iter().cycle().find(|&n| {
+        acc += n;
+        !seen.insert(acc)
+    });
+    acc
 }
 
 #[cfg(test)]
