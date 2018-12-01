@@ -18,10 +18,10 @@ fn line_diff(nums: Vec<u32>) -> u32 {
 }
 
 fn line_divisor(nums: Vec<u32>) -> u32 {
-    for x in nums.iter().enumerate() {
-        for y in nums.iter().enumerate() {
-            if x.0 != y.0 && x.1 % y.1 == 0 {
-                return x.1 / y.1;
+    for (i, x) in nums.iter().enumerate() {
+        for (j, y) in nums.iter().enumerate() {
+            if i != j && x % y == 0 {
+                return x / y;
             }
         }
     }
