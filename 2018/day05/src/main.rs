@@ -8,29 +8,30 @@ fn main() {
     println!("Part two: {}", problem_unit(&input));
 }
 
-fn reduce_polymer(mut chars: Vec<char>) -> usize {
-    let mut i = 0;
-    loop {
-        let x = chars.get(i).unwrap();
-        let y = chars.get(i + 1);
-        if y.is_none() {
-            // End of the vector, escape
-            break;
+fn reduce_polymer(chars: Vec<char>) -> usize {
+    let mut stack = Vec::with_capacity(chars.len());
+    let mut last: Option<&char> = chars.get(0);
+
+    for c in chars.iter().skip(1) {
+        if last.is_none() {
+            last = Some(c);
+            continue;
         }
 
-        let y = y.unwrap();
-        if reacts(*x, *y) {
-            chars.remove(i + 1);
-            chars.remove(i);
-            if i > 0 {
-                i = i - 1;
-            }
-        } else {
-            i += 1;
+        if reacts(c, last.unwrap()) {
+            last = stack.pop();
+            continue;
         }
+
+        stack.push(&last.unwrap());
+        last = Some(c);
     }
 
-    chars.len()
+    if last.is_some() {
+        stack.push(&last.unwrap());
+    }
+
+    stack.len()
 }
 
 fn problem_unit(input: &str) -> usize {
@@ -38,32 +39,21 @@ fn problem_unit(input: &str) -> usize {
     alphabet
         .chars()
         .map(|c| {
-            let polymer = remove_unit(input, c);
+            let polymer = remove_unit(input, &c);
             reduce_polymer(polymer)
         })
         .min()
         .unwrap()
 }
 
-fn reacts(a: char, b: char) -> bool {
-    if a == b {
-        return false;
-    }
-
-    if a.to_lowercase().next().unwrap() == b.to_lowercase().next().unwrap() {
-        return true;
-    }
-
-    return false;
+fn reacts(a: &char, b: &char) -> bool {
+    a != b && a.eq_ignore_ascii_case(b)
 }
 
-fn remove_unit(input: &str, unit: char) -> Vec<char> {
-    let lower = unit.to_lowercase().next().unwrap();
-    let upper = unit.to_uppercase().next().unwrap();
-
+fn remove_unit(input: &str, unit: &char) -> Vec<char> {
     input
         .chars()
-        .filter(|&c| c.is_alphabetic() && c != lower && c != upper)
+        .filter(|&c| c.is_alphabetic() && !c.eq_ignore_ascii_case(unit))
         .collect()
 }
 
@@ -73,9 +63,9 @@ mod test {
 
     #[test]
     fn reacts_test() {
-        assert_eq!(reacts('a', 'A'), true, "aA");
-        assert_eq!(reacts('a', 'a'), false, "aa");
-        assert_eq!(reacts('b', 'a'), false, "ba");
+        assert_eq!(reacts(&'a', &'A'), true, "aA");
+        assert_eq!(reacts(&'a', &'a'), false, "aa");
+        assert_eq!(reacts(&'b', &'a'), false, "ba");
     }
 
     #[test]
@@ -87,7 +77,7 @@ mod test {
     #[test]
     fn remove_unit_test() {
         assert_eq!(
-            remove_unit("dabAcCaCBAcCcaDA", 'a')
+            remove_unit("dabAcCaCBAcCcaDA", &'a')
                 .iter()
                 .collect::<String>(),
             String::from("dbcCCBcCcD")
