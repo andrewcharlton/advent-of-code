@@ -3,24 +3,13 @@ use std::fs;
 
 type Point = (usize, usize);
 type PointMap = HashMap<Point, usize>;
-type Grid = Vec<Vec<(usize, bool)>>;
+type Grid = Vec<Vec<usize>>;
 
 fn main() {
     let input = fs::read_to_string("input").expect("Couldn't read file");
 
-    let mut points = parse_input(&input);
-
-    let max_x = points.keys().map(|p| p.0).max().unwrap();
-    let max_y = points.keys().map(|p| p.1).max().unwrap();
-    let mut grid: Grid = vec![vec![(0, false); max_y + 2]; max_x + 2];
-
-    while points.len() > 0 {
-        for (p, k) in points.iter() {
-            grid[p.0][p.1] = (*k, true);
-        }
-
-        points = next_points(points, &grid, max_x, max_y);
-    }
+    let points = parse_input(&input);
+    let grid = populate_grid(&points);
 
     let counts = get_counts(&grid);
     let max_area = counts.iter().map(|(_, v)| v).max().unwrap();
@@ -28,7 +17,7 @@ fn main() {
     println!("Part one: {}", max_area);
 
     let points: HashSet<Point> = parse_input(&input).keys().map(|&k| k).collect();
-    println!("Part two: {}", safe_points(points, max_x, max_y));
+    println!("Part two: {}", safe_points(points));
 
     // let mut grid: [[(usize, bool); 320]; 320] = [[(0, false); MAX_X]; MAX_Y];
     // let point = parse_input(&input);
@@ -41,7 +30,48 @@ fn main() {
     // println!("Max y: {:?}", input.iter().max_by_key(|x| x.2).unwrap().2);
 }
 
-fn safe_points(points: HashSet<Point>, max_x: usize, max_y: usize) -> usize {
+fn distance(p: Point, q: Point) -> usize {
+    let mut d = 0;
+    d += if p.0 > q.0 { p.0 - q.0 } else { q.0 - p.0 };
+    d += if p.1 > q.1 { p.1 - q.1 } else { q.1 - p.1 };
+    d
+}
+
+fn populate_grid(points: &PointMap) -> Grid {
+    let max_x = points.keys().map(|p| p.0).max().unwrap();
+    let max_y = points.keys().map(|p| p.1).max().unwrap();
+    let mut grid: Grid = vec![vec![0; max_y + 2]; max_x + 2];
+
+    for x in 0..max_x + 2 {
+        for y in 0..max_y + 2 {
+            let mut set = false;
+            let mut min_d = 0;
+            let mut closest = 0;
+            for (&p, &k) in points.iter() {
+                let d = distance(p, (x, y));
+                if !set || d < min_d {
+                    set = true;
+                    min_d = d;
+                    closest = k;
+                    continue;
+                }
+
+                if d == min_d {
+                    closest = 0;
+                }
+            }
+
+            grid[x][y] = closest
+        }
+    }
+
+    grid
+}
+
+fn safe_points(points: HashSet<Point>) -> usize {
+    let max_x = points.iter().map(|p| p.0).max().unwrap();
+    let max_y = points.iter().map(|p| p.1).max().unwrap();
+
     let mut count = 0;
 
     for x in 0..max_x {
@@ -65,7 +95,7 @@ fn get_counts(grid: &Grid) -> HashMap<usize, usize> {
 
     let mut counts: HashMap<usize, usize> = HashMap::new();
     for row in grid.iter() {
-        for &(v, _) in row.iter() {
+        for &v in row.iter() {
             if !edges.contains(&v) {
                 counts.insert(v, counts.get(&v).unwrap_or(&0) + 1);
             }
@@ -77,18 +107,18 @@ fn get_counts(grid: &Grid) -> HashMap<usize, usize> {
 fn get_edge_pieces(grid: &Grid) -> HashSet<usize> {
     let mut edges: HashSet<usize> = HashSet::new();
 
-    for k in grid[0].iter() {
-        edges.insert(k.0);
+    for &k in grid[0].iter() {
+        edges.insert(k);
     }
 
     for row in grid.iter() {
         let mut row = row.iter();
-        edges.insert(row.next().unwrap().0);
-        edges.insert(row.last().unwrap().0);
+        edges.insert(*row.next().unwrap());
+        edges.insert(*row.last().unwrap());
     }
 
-    for k in grid[grid.len() - 1].iter() {
-        edges.insert(k.0);
+    for &k in grid[grid.len() - 1].iter() {
+        edges.insert(k);
     }
 
     edges
@@ -109,50 +139,6 @@ fn parse_input(input: &str) -> PointMap {
     points
         .into_iter()
         .enumerate()
-        .map(|(i, p)| ((p.0 + 1 - min_x, p.1 + 1 - min_y), i + 1))
+        .map(|(i, p)| ((p.0 - min_x, p.1 - min_y), i + 1))
         .collect()
-}
-
-fn next_points(points: PointMap, grid: &Grid, max_x: usize, max_y: usize) -> PointMap {
-    let mut next: PointMap = HashMap::new();
-
-    for (p, k) in points {
-        if k == 0 {
-            continue;
-        }
-
-        for n in neighbours(&p, max_x, max_y) {
-            let assigned = grid[n.0][n.1].1;
-            if assigned {
-                continue;
-            }
-
-            if next.get(&n).is_some() && *next.get(&n).unwrap() != k {
-                next.insert(n, 0);
-                continue;
-            }
-
-            next.insert(n, k);
-        }
-    }
-
-    next
-}
-
-fn neighbours(p: &Point, max_x: usize, max_y: usize) -> Vec<Point> {
-    let mut n = Vec::new();
-    if p.0 > 0 {
-        n.push((p.0 - 1, p.1));
-    }
-    if p.0 <= max_x {
-        n.push((p.0 + 1, p.1));
-    }
-    if p.1 > 0 {
-        n.push((p.0, p.1 - 1));
-    }
-    if p.1 <= max_y {
-        n.push((p.0, p.1 + 1));
-    }
-
-    n
 }
