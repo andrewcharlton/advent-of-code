@@ -4,7 +4,7 @@ from collections import defaultdict
 def read_input():
 
     points = []
-    with open("input") as f:
+    with open("test_input") as f:
         for line in f:
             x, y = [int(x) for x in line.split(", ")]
             points.append((x, y))
@@ -73,7 +73,7 @@ def edge_pieces(grid):
     edges = set([p[0] for p in grid[0]] + [p[0] for p in grid[-1]])
     for row in grid:
         edges.add(row[0][0])
-        edges.add(row[1][0])
+        edges.add(row[-1][0])
 
     return edges
 
@@ -82,9 +82,13 @@ def solve_1():
 
     points = read_input()
     grid = make_grid(points)
+    print(grid)
 
     areas = sum_areas(grid)
+    print(areas)
+
     edges = edge_pieces(grid)
+    print(edges)
 
     answer = max([v for (k, v) in areas.items() if k not in edges])
     print(answer)
