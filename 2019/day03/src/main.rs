@@ -2,148 +2,120 @@ use std::fs;
 
 fn main() {
     let input = fs::read_to_string("input").expect("couldn't read file");
+    let (min_distance, min_steps) = solve(&input);
+    println!("Part one: {}", min_distance);
+    println!("Part two: {}", min_steps);
+}
+
+fn solve(input: &str) -> (i64, i64) {
     let lines: Vec<&str> = input.lines().collect();
 
     let wire1 = parse_input(lines[0]);
     let wire2 = parse_input(lines[1]);
 
+    println!("{:?}\n\n{:?}\n\n", wire1, wire2);
+
     let mut intersections: Vec<(Point, i64)> = Vec::new();
     let mut dist1 = 0;
-    for link1 in &wire1 {
+    for s1 in &wire1 {
         let mut dist2 = 0;
-        for link2 in &wire2 {
-            match intersection(link1, link2) {
+        for s2 in &wire2 {
+            match s1.bisects(&s2) {
                 Some((p, d)) => intersections.push((p, d + dist1 + dist2)),
                 None => {}
             }
-            dist2 += link2.length();
+            dist2 += s2.length();
         }
-        dist1 += link1.length();
+        dist1 += s1.length();
     }
+
+    println!("{:?}", intersections);
 
     let min_distance = intersections
         .iter()
         .map(|(p, _)| p.x.abs() + p.y.abs())
         .min()
         .unwrap();
-    println!("Part one: {}", min_distance);
 
-    let min_steps = intersections.iter().map(|(_, d)| d).min().unwrap();
-    println!("Part two: {}", min_steps);
+    let min_steps = intersections.iter().map(|(_, d)| *d).min().unwrap();
+
+    (min_distance, min_steps)
 }
 
-#[derive(Debug, PartialEq)]
-enum Link {
-    Horizontal { x0: i64, x1: i64, y: i64 },
-    Vertical { x: i64, y0: i64, y1: i64 },
+fn parse_input(input: &str) -> Vec<Section> {
+    let mut links = Vec::new();
+    let mut p = Point { x: 0, y: 0 };
+
+    for cmd in input.split(",") {
+        let (next_p, dir) = next_point(&p, cmd);
+        links.push(Section {
+            start: p.clone(),
+            end: next_p.clone(),
+            dir,
+        });
+        p = next_p;
+    }
+
+    links
 }
 
-impl Link {
-    fn length(&self) -> i64 {
-        match self {
-            Link::Horizontal { x0, x1, y: _ } => (x0 - x1).abs(),
-            Link::Vertical { x: _, y0, y1 } => (y0 - y1).abs(),
-        }
+fn next_point(p: &Point, cmd: &str) -> (Point, Direction) {
+    let (dir, n) = cmd.split_at(1);
+    let n = n.parse::<i64>().unwrap();
+
+    match dir {
+        "R" => (Point { x: p.x + n, y: p.y }, Direction::Horizontal),
+        "L" => (Point { x: p.x - n, y: p.y }, Direction::Horizontal),
+        "U" => (Point { x: p.x, y: p.y + n }, Direction::Vertical),
+        "D" => (Point { x: p.x, y: p.y - n }, Direction::Vertical),
+        dir => panic!("unrecognised op: {}", dir),
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 struct Point {
     x: i64,
     y: i64,
 }
 
-fn intersection(l1: &Link, l2: &Link) -> Option<(Point, i64)> {
-    match l1 {
-        Link::Horizontal { x0, x1, y } => match l2 {
-            Link::Vertical { x, y0, y1 } => {
-                if bisects(x, x0, x1) && bisects(y, y0, y1) {
-                    let dist = (x - x0).abs() + (y - y0).abs();
-                    return Some((Point { x: *x, y: *y }, dist));
-                }
-                None
-            }
-            _ => None,
-        },
-        Link::Vertical { x, y0, y1 } => match l2 {
-            Link::Horizontal { x0, x1, y } => {
-                if bisects(x, x0, x1) && bisects(y, y0, y1) {
-                    let dist = (x - x0).abs() + (y - y0).abs();
-                    return Some((Point { x: *x, y: *y }, dist));
-                }
-                None
-            }
-            _ => None,
-        },
+#[derive(Debug, PartialEq)]
+enum Direction {
+    Horizontal,
+    Vertical,
+}
+
+#[derive(Debug, PartialEq)]
+struct Section {
+    dir: Direction,
+    start: Point,
+    end: Point,
+}
+
+impl Section {
+    fn length(&self) -> i64 {
+        (self.end.x - self.start.x).abs() + (self.end.y - self.start.y).abs()
     }
-}
 
-fn bisects(p: &i64, p0: &i64, p1: &i64) -> bool {
-    (p0 <= p && p <= p1) || (p1 <= p && p <= p0)
-}
-
-fn parse_input(input: &str) -> Vec<Link> {
-    let mut links = Vec::new();
-    let mut loc = Point { x: 0, y: 0 };
-
-    let cmds = input.split(",");
-    for cmd in cmds {
-        let (dir, n) = cmd.split_at(1);
-        let n = n.parse::<i64>().unwrap();
-        loc = match dir {
-            "R" => {
-                links.push(Link::Horizontal {
-                    x0: loc.x,
-                    x1: loc.x + n,
-                    y: loc.y,
-                });
-                Point {
-                    x: loc.x + n,
-                    y: loc.y,
-                }
-            }
-
-            "L" => {
-                links.push(Link::Horizontal {
-                    x0: loc.x,
-                    x1: loc.x - n,
-                    y: loc.y,
-                });
-                Point {
-                    x: loc.x - n,
-                    y: loc.y,
-                }
-            }
-
-            "U" => {
-                links.push(Link::Vertical {
-                    x: loc.x,
-                    y0: loc.y,
-                    y1: loc.y + n,
-                });
-                Point {
-                    x: loc.x,
-                    y: loc.y + n,
-                }
-            }
-
-            "D" => {
-                links.push(Link::Vertical {
-                    x: loc.x,
-                    y0: loc.y,
-                    y1: loc.y - n,
-                });
-                Point {
-                    x: loc.x,
-                    y: loc.y - n,
-                }
-            }
-
-            dir => panic!("unrecognised op: {}", dir),
+    fn bisects(&self, other: &Section) -> Option<(Point, i64)> {
+        if self.dir == other.dir {
+            return None;
         }
-    }
 
-    links
+        let (h, v) = if self.dir == Direction::Horizontal {
+            (self, other)
+        } else {
+            (other, self)
+        };
+
+        let (x, y) = (v.start.x, h.start.y);
+
+        if (h.start.x - x) * (h.end.x - x) >= 0 || (v.start.y - y) * (v.end.y - y) >= 0 {
+            return None;
+        }
+
+        let distance = (h.start.x - x).abs() + (v.start.y - y).abs();
+        Some((Point { x, y }, distance))
+    }
 }
 
 #[cfg(test)]
@@ -151,27 +123,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn input_parsing_test() {
-        assert_eq!(
-            parse_input("R5,D5,L5,U5"),
-            vec!(
-                Link::Horizontal { x0: 0, x1: 5, y: 0 },
-                Link::Vertical {
-                    x: 5,
-                    y0: 0,
-                    y1: -5
-                },
-                Link::Horizontal {
-                    x0: 5,
-                    x1: 0,
-                    y: -5
-                },
-                Link::Vertical {
-                    x: 0,
-                    y0: -5,
-                    y1: 0
-                },
-            )
-        );
+    fn example1() {
+        let input = "R8,U5,L5,D3\nU7,R6,D4,L4";
+        let (min_dist, min_steps) = solve(&input);
+        assert_eq!(6, min_dist, "min distance");
+        assert_eq!(30, min_steps, "min_steps");
+    }
+
+    #[test]
+    fn example2() {
+        let input = "R75,D30,R83,U83,L12,D49,R71,U7,L72\nU62,R66,U55,R34,D71,R55,D58,R83";
+        let (min_dist, min_steps) = solve(&input);
+        assert_eq!(159, min_dist, "min distance");
+        assert_eq!(610, min_steps, "min_steps");
+    }
+
+    #[test]
+    fn example3() {
+        let input =
+            "R98,U47,R26,D63,R33,U87,L62,D20,R33,U53,R51\nU98,R91,D20,R16,D67,R40,U7,R15,U6,R7";
+        let (min_dist, min_steps) = solve(&input);
+        assert_eq!(135, min_dist, "min distance");
+        assert_eq!(410, min_steps, "min_steps");
     }
 }
