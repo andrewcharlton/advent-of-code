@@ -13,8 +13,6 @@ fn solve(input: &str) -> (i64, i64) {
     let wire1 = parse_input(lines[0]);
     let wire2 = parse_input(lines[1]);
 
-    println!("{:?}\n\n{:?}\n\n", wire1, wire2);
-
     let mut intersections: Vec<(Point, i64)> = Vec::new();
     let mut dist1 = 0;
     for s1 in &wire1 {
@@ -28,8 +26,6 @@ fn solve(input: &str) -> (i64, i64) {
         }
         dist1 += s1.length();
     }
-
-    println!("{:?}", intersections);
 
     let min_distance = intersections
         .iter()
