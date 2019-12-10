@@ -15,64 +15,73 @@ lazy_static! {
 fn main() {
     let input = fs::read_to_string("samples").expect("Couldn't read samples file");
     let samples = parse_samples(&input);
-    println!("{:?}", samples.len());
 
-    let mut count = 0;
-    let mut op_map: HashMap<usize, HashSet<Op>> = HashMap::new();
-    for i in 0..16 {
-        op_map.insert(i, all_ops().into_iter().clone().collect());
+    let mut possible: HashSet<(usize, Op)> = HashSet::new();
+
+    // Create a list of every possible combination
+    for n in 0..16 {
+        for op in all_ops() {
+            possible.insert((n, op));
+        }
     }
 
-    for sample in samples.iter() {
+    let mut three_or_more = 0;
+
+    for sample in &samples {
         let ops = test_sample(&sample);
-        if ops.len() >= 3 {
-            count += 1;
+
+        // Count which ones pass 3 or more (hence fail <= 13)
+        if ops.len() <= 13 {
+            three_or_more += 1;
         }
 
-        let op_code = sample.instruction[0];
-
-        let possible = op_map
-            .get(&op_code)
-            .unwrap()
-            .into_iter()
-            .filter(|op| ops.contains(op))
-            .map(|op| op.clone())
-            .collect();
-
-        op_map.insert(op_code, possible);
+        // Find the ones that fail and remove them from the set
+        for op in ops {
+            possible.remove(&(sample.instruction[0], op));
+        }
     }
 
-    println!("Part one: {}", count);
+    let mut op_map: HashMap<usize, Op> = HashMap::new();
 
-    let assigned_codes = assign_opcodes(op_map);
-    println!("{:?}", assigned_codes);
+    // Repeatedly find codes that map to a single instruction
+    // and remove them (and any related ones) from the set
+    for _ in 0..16 {
+        let (instr, op) = find_single(&possible);
+        println!("{}: {:?}", instr, op);
+
+        op_map.insert(instr, op);
+
+        possible.remove(&(instr, op));
+        for i in 0..16 {
+            possible.remove(&(i, op));
+        }
+    }
+
+    // Run operations on the instructions
+
+    let input = fs::read_to_string("input").expect("couldn't read input");
+    let input: Vec<[usize; 4]> = input.lines().filter_map(parse_sample_line).collect();
+
+    let mut r = [0, 0, 0, 0];
+    for i in input {
+        let op = op_map.get(&i[0]).unwrap();
+        let ans = apply_op(op, &r, i[1], i[2]);
+        r[i[3]] = ans;
+        println!("{:?} {} {} {} {:?}", op, i[1], i[2], i[3], r);
+    }
+
+    println!("Part two: {:?}", r);
 }
 
-fn assign_opcodes(mut map: HashMap<usize, HashSet<Op>>) -> HashMap<usize, Op> {
-    let mut assigned = HashMap::new();
-    let mut num_assigned = 0;
-
-    while num_assigned < 16 {
-        let mut latest: Option<Op> = None;
-        for (i, s) in map.iter() {
-            if s.len() == 1 {
-                latest = s.drain().next();
-                assigned.insert(*i, latest.unwrap());
-                break;
-            }
-        }
-
-        if latest.is_none() {
-            panic!("Shit got real");
-        }
-
-        for (i, mut s) in map.iter_mut() {
-            s.remove(&latest.unwrap());
-            map.insert(*i, s);
+fn find_single(ops: &HashSet<(usize, Op)>) -> (usize, Op) {
+    for i in 0..16 {
+        let matches: Vec<(usize, Op)> = ops.iter().filter(|(n, _)| *n == i).cloned().collect();
+        if matches.len() == 1 {
+            return matches[0];
         }
     }
 
-    assigned
+    panic!("no instructions with a single op");
 }
 
 fn test_sample(sample: &Sample) -> Vec<Op> {
@@ -84,7 +93,7 @@ fn test_sample(sample: &Sample) -> Vec<Op> {
                 &sample.before,
                 sample.instruction[1],
                 sample.instruction[2],
-            ) == sample.after[sample.instruction[3]]
+            ) != sample.after[sample.instruction[3]]
         })
         .collect()
 }
