@@ -1,86 +1,122 @@
-fn main() {
-    let moons = vec![
-        Moon::new(-8, -18, 6),
-        Moon::new(-11, -14, 4),
-        Moon::new(8, -3, -10),
-        Moon::new(-2, -16, 1),
-    ];
+use std::cmp::max;
+use std::collections::HashMap;
 
-    let ans = energy_after(&moons, 1000);
+fn main() {
+    let x = Dimension::new(-8, -11, 8, -2);
+    let y = Dimension::new(-18, -14, -3, -16);
+    let z = Dimension::new(6, 4, -10, 1);
+
+    let ans = energy_after(&x, &y, &z, 1000);
     println!("Part one: {}", ans);
+
+    let ans = first_repeat(&x, &y, &z);
+    println!("Part two: {}", ans);
 }
 
-fn energy_after(moons: &Vec<Moon>, steps: usize) -> i64 {
-    let mut moons = moons.clone();
+fn energy_after(x: &Dimension, y: &Dimension, z: &Dimension, steps: usize) -> i64 {
+    let mut x = x.clone();
+    let mut y = y.clone();
+    let mut z = z.clone();
 
     for _ in 0..steps {
-        let positions = moons.clone();
-        moons
-            .iter_mut()
-            .for_each(|moon| moon.update_velocity(&positions));
-        moons.iter_mut().for_each(|moon| moon.update_position());
+        x = x.next();
+        y = y.next();
+        z = z.next();
     }
 
-    moons.iter().map(|moon| moon.energy()).sum()
+    total_energy(&x, &y, &z)
 }
 
-#[derive(Clone, Debug)]
-struct Moon {
-    x: i64,
-    y: i64,
-    z: i64,
-    v_x: i64,
-    v_y: i64,
-    v_z: i64,
+fn first_repeat(x: &Dimension, y: &Dimension, z: &Dimension) -> usize {
+    let (a_x, d_x) = find_loop(x);
+    let (a_y, d_y) = find_loop(y);
+    let (a_z, d_z) = find_loop(z);
+
+    max(max(a_x, a_y), a_z) + lcm(lcm(d_x, d_y), d_z)
 }
 
-impl Moon {
-    fn new(x: i64, y: i64, z: i64) -> Moon {
-        Moon {
-            x,
-            y,
-            z,
-            v_x: 0,
-            v_y: 0,
-            v_z: 0,
+fn find_loop(d: &Dimension) -> (usize, usize) {
+    let mut n = 0;
+    let mut previous: HashMap<Dimension, usize> = HashMap::new();
+
+    let mut d = d.clone();
+
+    loop {
+        if previous.contains_key(&d) {
+            let p = previous.get(&d).unwrap();
+            return (*p, n - p);
+        }
+
+        let next = d.next();
+        previous.insert(d, n);
+
+        d = next;
+        n += 1;
+    }
+}
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+struct Dimension {
+    pos: [i64; 4],
+    v: [i64; 4],
+}
+
+impl Dimension {
+    fn new(a: i64, b: i64, c: i64, d: i64) -> Dimension {
+        Dimension {
+            pos: [a, b, c, d],
+            v: [0, 0, 0, 0],
         }
     }
 
-    fn update_velocity(&mut self, moons: &Vec<Moon>) {
-        for moon in moons {
-            if moon.x > self.x {
-                self.v_x += 1;
-            }
-            if moon.x < self.x {
-                self.v_x -= 1;
-            }
-
-            if moon.y > self.y {
-                self.v_y += 1;
-            }
-            if moon.y < self.y {
-                self.v_y -= 1;
-            }
-
-            if moon.z > self.z {
-                self.v_z += 1;
-            }
-            if moon.z < self.z {
-                self.v_z -= 1;
+    fn next(&self) -> Dimension {
+        let mut v = self.v.clone();
+        for i in 0..4 {
+            for j in 0..4 {
+                if i == j {
+                    continue;
+                }
+                if self.pos[i] < self.pos[j] {
+                    v[i] += 1;
+                }
+                if self.pos[i] > self.pos[j] {
+                    v[i] -= 1;
+                }
             }
         }
+
+        let pos = [
+            self.pos[0] + v[0],
+            self.pos[1] + v[1],
+            self.pos[2] + v[2],
+            self.pos[3] + v[3],
+        ];
+        Dimension { pos, v }
+    }
+}
+
+fn total_energy(x: &Dimension, y: &Dimension, z: &Dimension) -> i64 {
+    let pe: Vec<i64> = (0..4)
+        .map(|m| x.pos[m].abs() + y.pos[m].abs() + z.pos[m].abs())
+        .collect();
+
+    let ke: Vec<i64> = (0..4)
+        .map(|m| x.v[m].abs() + y.v[m].abs() + z.v[m].abs())
+        .collect();
+
+    pe.iter().zip(ke.iter()).map(|(ke, pe)| ke * pe).sum()
+}
+
+fn hcf(a: usize, b: usize) -> usize {
+    if a % b == 0 {
+        return b;
     }
 
-    fn update_position(&mut self) {
-        self.x += self.v_x;
-        self.y += self.v_y;
-        self.z += self.v_z;
-    }
+    hcf(b, a % b)
+}
 
-    fn energy(&self) -> i64 {
-        (self.x.abs() + self.y.abs() + self.z.abs())
-            * (self.v_x.abs() + self.v_y.abs() + self.v_z.abs())
-    }
+fn lcm(a: usize, b: usize) -> usize {
+    a * b / hcf(a, b)
 }
 
 #[cfg(test)]
@@ -89,12 +125,25 @@ mod tests {
 
     #[test]
     fn energy_after_test() {
-        let mut moons = vec![
-            Moon::new(-1, 0, 2),
-            Moon::new(2, -10, -7),
-            Moon::new(4, -8, 8),
-            Moon::new(3, 5, -1),
-        ];
-        assert_eq!(energy_after(&mut moons, 10), 179);
+        let x = Dimension::new(-1, 2, 4, 3);
+        let y = Dimension::new(0, -10, -8, 5);
+        let z = Dimension::new(2, -7, 8, -1);
+        assert_eq!(energy_after(&x, &y, &z, 10), 179);
+    }
+
+    #[test]
+    fn first_repeat_example1() {
+        let x = Dimension::new(-1, 2, 4, 3);
+        let y = Dimension::new(0, -10, -8, 5);
+        let z = Dimension::new(2, -7, 8, -1);
+        assert_eq!(first_repeat(&x, &y, &z), 2772);
+    }
+
+    #[test]
+    fn first_repeat_example2() {
+        let x = Dimension::new(-8, 5, 2, 9);
+        let y = Dimension::new(-10, 5, -7, -8);
+        let z = Dimension::new(0, 10, 3, -3);
+        assert_eq!(first_repeat(&x, &y, &z), 4686774924);
     }
 }
