@@ -3,11 +3,12 @@ use std::collections::HashSet;
 const INPUT: &str = include_str!("../input.txt");
 
 fn main() {
-    println!("Part one: {}", part_one(INPUT));
+    println!("Part one: {}", unique_tail_positions(INPUT, 2));
+    println!("Part one: {}", unique_tail_positions(INPUT, 10));
 }
 
-fn part_one(input: &str) -> usize {
-    let mut rope = Rope::new();
+fn unique_tail_positions(input: &str, knots: usize) -> usize {
+    let mut rope = Rope::new(knots);
     let moves = parse_moves(input);
     for (dir, n) in moves {
         rope.move_n(dir, n);
@@ -27,51 +28,54 @@ fn parse_moves(input: &str) -> Vec<(char, usize)> {
 }
 
 struct Rope {
-    head: (i32, i32),
-    tail: (i32, i32),
+    n: usize,
+    knots: Vec<(i32, i32)>,
     visited: HashSet<(i32, i32)>,
 }
 
 impl Rope {
-    fn new() -> Rope {
+    fn new(n: usize) -> Rope {
         let mut visited = HashSet::new();
         visited.insert((0, 0));
 
-        Rope {
-            head: (0, 0),
-            tail: (0, 0),
-            visited,
+        let mut knots: Vec<(i32, i32)> = Vec::new();
+        for _ in 0..n {
+            knots.push((0, 0));
         }
+
+        Rope { n, knots, visited }
     }
 
     fn move_n(&mut self, dir: char, n: usize) {
-        for i in 0..n {
+        for _ in 0..n {
             self.move_once(dir);
         }
     }
 
     fn move_once(&mut self, dir: char) {
         // Move the head first
+        let mut head = self.knots.get_mut(0).unwrap();
         match dir {
-            'L' => self.head.0 -= 1,
-            'R' => self.head.0 += 1,
-            'U' => self.head.1 += 1,
-            'D' => self.head.1 -= 1,
+            'L' => head.0 -= 1,
+            'R' => head.0 += 1,
+            'U' => head.1 += 1,
+            'D' => head.1 -= 1,
             _ => panic!("unknown direction: {}", dir),
         }
 
-        let diff = (self.head.0 - self.tail.0, self.head.1 - self.tail.1);
+        for i in 1..self.n {
+            let prev = self.knots.get(i - 1).unwrap().clone();
+            let mut curr = self.knots.get_mut(i).unwrap();
 
-        // We need to move if we are more than 1 away in any direction
-        if diff.0.abs() > 1 || diff.1.abs() > 1 {
-            self.tail.0 += unit(diff.0);
-            self.tail.1 += unit(diff.1);
+            let diff = (prev.0 - curr.0, prev.1 - curr.1);
+            if diff.0.abs() > 1 || diff.1.abs() > 1 {
+                curr.0 += unit(diff.0);
+                curr.1 += unit(diff.1);
+            }
         }
-        println!(
-            "Head: ({}, {}), Tail: ({}, {})",
-            self.head.0, self.head.1, self.tail.0, self.tail.1
-        );
-        self.visited.insert(self.tail);
+
+        let tail = self.knots.last().unwrap();
+        self.visited.insert(*tail);
     }
 }
 
@@ -88,9 +92,12 @@ mod test {
     use super::*;
 
     const EXAMPLE: &str = include_str!("../example.txt");
+    const EXAMPLE2: &str = include_str!("../example2.txt");
 
     #[test]
     fn example() {
-        assert_eq!(part_one(EXAMPLE), 13);
+        assert_eq!(unique_tail_positions(EXAMPLE, 2), 13);
+        assert_eq!(unique_tail_positions(EXAMPLE, 10), 1);
+        assert_eq!(unique_tail_positions(EXAMPLE2, 10), 36);
     }
 }
