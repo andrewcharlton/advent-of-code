@@ -5,13 +5,30 @@ const INPUT: &str = include_str!("../input.txt");
 
 fn main() {
     println!("Part one: {}", part_one(INPUT));
+    println!("Part two: {}", part_two(INPUT));
 }
 
 fn part_one(input: &str) -> usize {
     let mut grid = Grid::parse(input);
 
-    while !grid.advance() {}
+    while !grid.descend() {}
     grid.n
+}
+
+fn part_two(input: &str) -> usize {
+    let mut grid = Grid::parse(input);
+    while !grid.descend() {}
+
+    *grid
+        .visited
+        .iter()
+        .fold((&grid.start, &grid.n), |best, curr| {
+            if curr.1 > &best.1 || grid.heights[curr.0] != 'a' as u32 {
+                return best;
+            }
+            curr
+        })
+        .1
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -22,7 +39,7 @@ struct Point {
 
 struct Grid {
     n: usize,
-    end: Point,
+    start: Point,
     heights: HashMap<Point, u32>,
     visited: HashMap<Point, usize>,
     last_visited: HashSet<Point>,
@@ -54,18 +71,18 @@ impl Grid {
         let end = end.unwrap();
 
         let mut last_visited: HashSet<Point> = HashSet::new();
-        last_visited.insert(start.clone());
+        last_visited.insert(end.clone());
 
         Grid {
             n: 0,
-            end,
+            start,
             heights,
             visited: HashMap::new(),
             last_visited,
         }
     }
 
-    fn advance(&mut self) -> bool {
+    fn descend(&mut self) -> bool {
         let visited: HashSet<Point> = self
             .last_visited
             .iter()
@@ -94,7 +111,7 @@ impl Grid {
                         if height.is_none() {
                             return false;
                         }
-                        if *height.unwrap() > current_height + 1 {
+                        if *height.unwrap() < current_height - 1 {
                             return false;
                         }
 
@@ -111,7 +128,7 @@ impl Grid {
         }
 
         self.last_visited = visited;
-        self.visited.contains_key(&self.end)
+        self.visited.contains_key(&self.start)
     }
 }
 
@@ -124,5 +141,6 @@ mod tests {
     #[test]
     fn example() {
         assert_eq!(part_one(EXAMPLE), 31);
+        assert_eq!(part_two(EXAMPLE), 29);
     }
 }
