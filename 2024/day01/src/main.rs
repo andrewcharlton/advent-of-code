@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 const INPUT: &str = include_str!("../input.txt");
 
 fn main() {
@@ -6,12 +8,50 @@ fn main() {
 }
 
 fn part_one(input: &str) -> u64 {
-    0
+    let lines: Vec<(u64, u64)> = input
+        .lines()
+        .map(|line| {
+            let mut parts = line.split_whitespace();
+            let left = parts.next().unwrap().parse::<u64>().unwrap();
+            let right = parts.next().unwrap().parse::<u64>().unwrap();
+            (left, right)
+        })
+        .collect();
+
+    let mut left: Vec<u64> = lines.iter().map(|(x, _)| *x).collect();
+    left.sort();
+
+    let mut right: Vec<u64> = lines.iter().map(|(_, x)| *x).collect();
+    right.sort();
+
+    left.iter().zip(right.iter()).map(|(a, b)| a.abs_diff(*b)).sum()
 }
 
 
 fn part_two(input: &str) -> u64 {
-    0
+    let lines: Vec<(u64, u64)> = input
+        .lines()
+        .map(|line| {
+            let mut parts = line.split_whitespace();
+            let left = parts.next().unwrap().parse::<u64>().unwrap();
+            let right = parts.next().unwrap().parse::<u64>().unwrap();
+            (left, right)
+        })
+        .collect();
+
+    let mut left: Vec<u64> = lines.iter().map(|(x, _)| *x).collect();
+    left.sort();
+
+    let mut counts: HashMap<u64,u64> = HashMap::new();
+    for (_, x) in &lines {
+        if let Some(v) = counts.get_mut(&x) {
+            *v += 1;
+        } else {
+            counts.insert(*x, 1);
+        }
+    }
+
+    left.iter().map(|x| x * counts.get(&x).unwrap_or(&0)).sum()
 }
 
 
@@ -23,7 +63,7 @@ mod test {
 
     #[test]
     fn example() {
-        assert_eq!(part_one(EXAMPLE), 0);
-        assert_eq!(part_two(EXAMPLE), 0);
+        assert_eq!(part_one(EXAMPLE), 11);
+        assert_eq!(part_two(EXAMPLE), 31);
     }
 }
